@@ -1,0 +1,13 @@
+embed-server --server-config=standalone-ha.xml --std-out=echo
+
+batch
+
+/subsystem=keycloak-server/:list-add(name=providers,value="module:org.keycloak.email.provider")
+
+/subsystem=keycloak-server/spi=emailSender:add
+/subsystem=keycloak-server/spi=emailSender/provider=default:add(enabled=true)
+/subsystem=keycloak-server/spi=emailSender:write-attribute(name=default-provider, value=email)
+
+run-batch
+
+stop-embedded-server

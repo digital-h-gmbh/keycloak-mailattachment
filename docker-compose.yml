@@ -1,0 +1,16 @@
+version: '3'
+
+services:
+    keycloak:
+        image: auth-service
+        environment:
+            KEYCLOAK_USER: admin
+            KEYCLOAK_PASSWORD: admin
+        ports:
+            - 8080:8080
+    mailhog:
+        image: mailhog/mailhog
+        ports:
+            - 1025:1025
+            - 8025:8025
+

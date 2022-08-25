@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module xmlns="urn:jboss:module:1.1" name="org.keycloak.email">
+    <resources>
+        <resource-root path="email-0.0.1-SNAPSHOT.jar" />
+    </resources>
+    <dependencies>
+        <module name="javax.activation.api" />
+        <module name="javax.mail.api" />
+        <module name="org.jboss.logging" />
+        <module name="org.keycloak.keycloak-common" />
+        <module name="org.keycloak.keycloak-core" />
+        <module name="org.keycloak.keycloak-server-spi" />
+        <module name="org.keycloak.keycloak-server-spi-private" />
+        <module name="org.keycloak.keycloak-services" />
+    </dependencies>
+</module>
