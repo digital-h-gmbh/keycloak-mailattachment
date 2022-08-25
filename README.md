@@ -8,6 +8,7 @@ cd mailattachment
 mvn clean install
 
 cd ..
+docker build -t auth-service .
 docker-compose up
 ```
 
