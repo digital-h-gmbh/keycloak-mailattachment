@@ -19,3 +19,7 @@ keycloak_1  | 15:29:01,292 FATAL [org.keycloak.services] (ServerService Thread P
 keycloak_1  | Caused by: org.jboss.modules.xml.XmlPullParserException: Invalid/mismatched module name (expected org.keycloak.email) (position: START_TAG seen ...?>\n<module xmlns="urn:jboss:module:1.1" name="org.keycloak.email">... @2:64) 
 ...
 ```
+
+## Goal
+* [ ] send a pdf-file as attachment with the registration verification mail.
+* [ ] the pdf-file should be applied only to certain realms. Not all realms.
