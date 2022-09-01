@@ -8,6 +8,9 @@ services:
             KEYCLOAK_PASSWORD: admin
         ports:
             - 8080:8080
+        volumes:
+            - ./data/keycloak/standalone/configuration/standalone-ha.xml:/opt/jboss/keycloak/standalone/configuration/standalone-ha.xml
+            - ./data/keycloak/themes/base/email/:/opt/jboss/keycloak/themes/base/email/
     mailhog:
         image: mailhog/mailhog
         ports:
