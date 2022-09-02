@@ -197,7 +197,7 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
 
                 htmlPart.setFileName(fileName);
                 htmlPart.setHeader("Content-ID", "<" + contentId + ">");
-                htmlPart.setDisposition(MimeBodyPart.INLINE);
+                htmlPart.setDisposition(MimeBodyPart.ATTACHMENT);
                 multipart.addBodyPart(htmlPart);
             }
         } catch (MessagingException | IOException e) {
