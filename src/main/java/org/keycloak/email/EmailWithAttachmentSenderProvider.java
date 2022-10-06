@@ -25,8 +25,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.Map;
 import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @JBossLog
 public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
@@ -85,27 +83,26 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
             Session session = Session.getInstance(props);
 
             Multipart multipart = new MimeMultipart("mixed");
+            Multipart innerMultipart = new MimeMultipart("alternative");
 
             if (textBody != null) {
                 MimeBodyPart textPart = new MimeBodyPart();
                 textPart.setText(textBody, "UTF-8");
-                multipart.addBodyPart(textPart);
+                innerMultipart.addBodyPart(textPart);
             }
 
             if (htmlBody != null) {
                 MimeBodyPart htmlPart = new MimeBodyPart();
                 htmlPart.setContent(htmlBody, "text/html; charset=UTF-8");
-                multipart.addBodyPart(htmlPart);
-
-                Theme theme = this.session.theme().getTheme(Theme.Type.EMAIL);
-
-                final Matcher m = Pattern.compile("(?s)(\\\"cid:([^\\\"]+)\\\")(?!.*\\1.*)").matcher(htmlBody);
-                while (m.find()) {
-                    String attach = m.group(2);
-                    log.warn("Cid found: " + attach);
-                    addResource(multipart, theme, attach);
-                }
+                innerMultipart.addBodyPart(htmlPart);
             }
+
+            MimeBodyPart innerMultiPartBody = new MimeBodyPart();
+            innerMultiPartBody.setContent(innerMultipart);
+            multipart.addBodyPart(innerMultiPartBody);
+
+            Theme theme = this.session.theme().getTheme(Theme.Type.EMAIL);
+            addAttachments(multipart, theme);
 
             SMTPMessage msg = new SMTPMessage(session);
             msg.setFrom(toInternetAddress(from, fromDisplayName));
@@ -178,7 +175,7 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
 
     }
 
-    private void addAttachment(Multipart multipart, Theme theme, String path, String contentId) {
+    private void addAttachment(Multipart multipart, Theme theme, String path) {
         log.debug("addAttachment:" + path);
 
         // Open stream twice so javax.mailer can get content type
@@ -196,7 +193,6 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
                 htmlPart.setDataHandler(new DataHandler(new InputStreamDataSource(is1, is2, fileName)));
 
                 htmlPart.setFileName(fileName);
-                htmlPart.setHeader("Content-ID", "<" + contentId + ">");
                 htmlPart.setDisposition(MimeBodyPart.ATTACHMENT);
                 multipart.addBodyPart(htmlPart);
             }
@@ -205,15 +201,17 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
         }
     }
 
-    private void addResource(Multipart multipart, Theme theme, String contentId) {
+    private void addAttachments(Multipart multipart, Theme theme) {
         try {
             Properties properties = theme.getProperties();
-
-            String path = properties.getProperty("attach_" + contentId);
-            if (path != null) {
-                addAttachment(multipart, theme, path, contentId);
-            } else {
-                log.warn("Property attach_" + contentId + " not found in theme");
+            String rawAttachments = properties.getProperty("attachments");
+            if (rawAttachments == null) {
+                log.warn("Property attachments not found in theme");
+                return;
+            }
+            String[] attachments = rawAttachments.split(",");
+            for (String attachment : attachments) {
+                addAttachment(multipart, theme, attachment);
             }
         } catch (IOException e) {
             log.warn("Failed to get theme properties", e);
