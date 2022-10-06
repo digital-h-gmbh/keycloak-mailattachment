@@ -84,7 +84,7 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
 
             Session session = Session.getInstance(props);
 
-            Multipart multipart = new MimeMultipart("alternative");
+            Multipart multipart = new MimeMultipart("mixed");
 
             if (textBody != null) {
                 MimeBodyPart textPart = new MimeBodyPart();
