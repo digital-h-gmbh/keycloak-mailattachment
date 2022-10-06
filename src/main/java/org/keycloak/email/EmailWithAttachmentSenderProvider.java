@@ -82,7 +82,7 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
 
             Session session = Session.getInstance(props);
 
-            Multipart multipart = new MimeMultipart("mixed");
+            Multipart outerMultipart = new MimeMultipart("mixed");
             Multipart innerMultipart = new MimeMultipart("alternative");
 
             if (textBody != null) {
@@ -99,10 +99,10 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
 
             MimeBodyPart innerMultiPartBody = new MimeBodyPart();
             innerMultiPartBody.setContent(innerMultipart);
-            multipart.addBodyPart(innerMultiPartBody);
+            outerMultipart.addBodyPart(innerMultiPartBody);
 
             Theme theme = this.session.theme().getTheme(Theme.Type.EMAIL);
-            addAttachments(multipart, theme);
+            addAttachments(outerMultipart, theme);
 
             SMTPMessage msg = new SMTPMessage(session);
             msg.setFrom(toInternetAddress(from, fromDisplayName));
@@ -117,7 +117,7 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
 
             msg.setHeader("To", address);
             msg.setSubject(subject, "utf-8");
-            msg.setContent(multipart);
+            msg.setContent(outerMultipart);
             msg.saveChanges();
             msg.setSentDate(new Date());
 
