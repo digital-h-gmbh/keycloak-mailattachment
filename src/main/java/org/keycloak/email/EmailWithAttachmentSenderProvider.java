@@ -25,6 +25,8 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.Map;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @JBossLog
 public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
@@ -102,14 +104,14 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
             outerMultipart.addBodyPart(innerMultiPartBody);
 
             Theme theme = this.session.theme().getTheme(Theme.Type.EMAIL);
-            addAttachments(outerMultipart, theme);
+            addAttachments(outerMultipart, theme, htmlBody);
 
             SMTPMessage msg = new SMTPMessage(session);
             msg.setFrom(toInternetAddress(from, fromDisplayName));
 
-            msg.setReplyTo(new Address[]{toInternetAddress(from, fromDisplayName)});
+            msg.setReplyTo(new Address[] { toInternetAddress(from, fromDisplayName) });
             if (replyTo != null && !replyTo.isEmpty()) {
-                msg.setReplyTo(new Address[]{toInternetAddress(replyTo, replyToDisplayName)});
+                msg.setReplyTo(new Address[] { toInternetAddress(replyTo, replyToDisplayName) });
             }
             if (envelopeFrom != null && !envelopeFrom.isEmpty()) {
                 msg.setEnvelopeFrom(envelopeFrom);
@@ -117,7 +119,14 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
 
             msg.setHeader("To", address);
             msg.setSubject(subject, "utf-8");
-            msg.setContent(outerMultipart);
+            if (outerMultipart.getCount() > 1) {
+                // outerMultipart has attachments, so we have to use this as content
+                msg.setContent(outerMultipart);
+            } else {
+                // outerMultipart has no attachments,
+                // so we should use the innerMultipart as content (no nested multiparts)
+                msg.setContent(innerMultipart);
+            }
             msg.saveChanges();
             msg.setSentDate(new Date());
 
@@ -127,7 +136,7 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
             } else {
                 transport.connect();
             }
-            transport.sendMessage(msg, new InternetAddress[]{new InternetAddress(address)});
+            transport.sendMessage(msg, new InternetAddress[] { new InternetAddress(address) });
         } catch (Exception e) {
             ServicesLogger.LOGGER.failedToSendEmail(e);
             throw new EmailException(e);
@@ -201,20 +210,15 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
         }
     }
 
-    private void addAttachments(Multipart multipart, Theme theme) {
-        try {
-            Properties properties = theme.getProperties();
-            String rawAttachments = properties.getProperty("attachments");
-            if (rawAttachments == null) {
-                log.warn("Property attachments not found in theme");
-                return;
-            }
-            String[] attachments = rawAttachments.split(",");
-            for (String attachment : attachments) {
-                addAttachment(multipart, theme, attachment);
-            }
-        } catch (IOException e) {
-            log.warn("Failed to get theme properties", e);
+    private void addAttachments(Multipart multipart, Theme theme, String htmlBody) {
+        if (htmlBody == null) {
+            return;
+        }
+        Pattern pattern = Pattern.compile("<!--\\s*!attach:(.*?)-->", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(htmlBody);
+        while (matcher.find()) {
+            String attachment = matcher.group(1).trim();
+            addAttachment(multipart, theme, attachment);
         }
     }
 }
