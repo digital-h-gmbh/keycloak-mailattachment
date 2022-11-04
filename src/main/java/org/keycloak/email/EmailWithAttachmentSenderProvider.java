@@ -84,35 +84,34 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
 
             Session session = Session.getInstance(props);
 
-            Multipart multipart = new MimeMultipart("alternative");
+            Multipart outerMultipart = new MimeMultipart("mixed");
+            Multipart innerMultipart = new MimeMultipart("alternative");
 
             if (textBody != null) {
                 MimeBodyPart textPart = new MimeBodyPart();
                 textPart.setText(textBody, "UTF-8");
-                multipart.addBodyPart(textPart);
+                innerMultipart.addBodyPart(textPart);
             }
 
             if (htmlBody != null) {
                 MimeBodyPart htmlPart = new MimeBodyPart();
                 htmlPart.setContent(htmlBody, "text/html; charset=UTF-8");
-                multipart.addBodyPart(htmlPart);
-
-                Theme theme = this.session.theme().getTheme(Theme.Type.EMAIL);
-
-                final Matcher m = Pattern.compile("(?s)(\\\"cid:([^\\\"]+)\\\")(?!.*\\1.*)").matcher(htmlBody);
-                while (m.find()) {
-                    String attach = m.group(2);
-                    log.warn("Cid found: " + attach);
-                    addResource(multipart, theme, attach);
-                }
+                innerMultipart.addBodyPart(htmlPart);
             }
+
+            MimeBodyPart innerMultiPartBody = new MimeBodyPart();
+            innerMultiPartBody.setContent(innerMultipart);
+            outerMultipart.addBodyPart(innerMultiPartBody);
+
+            Theme theme = this.session.theme().getTheme(Theme.Type.EMAIL);
+            addAttachments(outerMultipart, theme, htmlBody);
 
             SMTPMessage msg = new SMTPMessage(session);
             msg.setFrom(toInternetAddress(from, fromDisplayName));
 
-            msg.setReplyTo(new Address[]{toInternetAddress(from, fromDisplayName)});
+            msg.setReplyTo(new Address[] { toInternetAddress(from, fromDisplayName) });
             if (replyTo != null && !replyTo.isEmpty()) {
-                msg.setReplyTo(new Address[]{toInternetAddress(replyTo, replyToDisplayName)});
+                msg.setReplyTo(new Address[] { toInternetAddress(replyTo, replyToDisplayName) });
             }
             if (envelopeFrom != null && !envelopeFrom.isEmpty()) {
                 msg.setEnvelopeFrom(envelopeFrom);
@@ -120,7 +119,14 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
 
             msg.setHeader("To", address);
             msg.setSubject(subject, "utf-8");
-            msg.setContent(multipart);
+            if (outerMultipart.getCount() > 1) {
+                // outerMultipart has attachments, so we have to use this as content
+                msg.setContent(outerMultipart);
+            } else {
+                // outerMultipart has no attachments,
+                // so we should use the innerMultipart as content (no nested multiparts)
+                msg.setContent(innerMultipart);
+            }
             msg.saveChanges();
             msg.setSentDate(new Date());
 
@@ -130,7 +136,7 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
             } else {
                 transport.connect();
             }
-            transport.sendMessage(msg, new InternetAddress[]{new InternetAddress(address)});
+            transport.sendMessage(msg, new InternetAddress[] { new InternetAddress(address) });
         } catch (Exception e) {
             ServicesLogger.LOGGER.failedToSendEmail(e);
             throw new EmailException(e);
@@ -178,7 +184,7 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
 
     }
 
-    private void addAttachment(Multipart multipart, Theme theme, String path, String contentId) {
+    private void addAttachment(Multipart multipart, Theme theme, String path) {
         log.debug("addAttachment:" + path);
 
         // Open stream twice so javax.mailer can get content type
@@ -196,7 +202,6 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
                 htmlPart.setDataHandler(new DataHandler(new InputStreamDataSource(is1, is2, fileName)));
 
                 htmlPart.setFileName(fileName);
-                htmlPart.setHeader("Content-ID", "<" + contentId + ">");
                 htmlPart.setDisposition(MimeBodyPart.ATTACHMENT);
                 multipart.addBodyPart(htmlPart);
             }
@@ -205,18 +210,15 @@ public class EmailWithAttachmentSenderProvider implements EmailSenderProvider {
         }
     }
 
-    private void addResource(Multipart multipart, Theme theme, String contentId) {
-        try {
-            Properties properties = theme.getProperties();
-
-            String path = properties.getProperty("attach_" + contentId);
-            if (path != null) {
-                addAttachment(multipart, theme, path, contentId);
-            } else {
-                log.warn("Property attach_" + contentId + " not found in theme");
-            }
-        } catch (IOException e) {
-            log.warn("Failed to get theme properties", e);
+    private void addAttachments(Multipart multipart, Theme theme, String htmlBody) {
+        if (htmlBody == null) {
+            return;
+        }
+        Pattern pattern = Pattern.compile("<!--\\s*!attach:(.*?)-->", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(htmlBody);
+        while (matcher.find()) {
+            String attachment = matcher.group(1).trim();
+            addAttachment(multipart, theme, attachment);
         }
     }
 }
