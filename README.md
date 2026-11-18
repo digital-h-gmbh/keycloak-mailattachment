@@ -39,14 +39,29 @@ attachment.
     <provider name="emailwithattachment" enabled="true"></provider>
 </spi>
 ```
-* The email-template for the email that should be sent with attachment should include a special div tag:
+## adding attachments
+
+Attachments are declared directly in the **HTML** email template with a special comment, one comment per file:
+
 ```html
-<div src="cid:testfile"></div>
+<html>
+<body>
+${kcSanitize(msg("emailTestBodyHtml",realmName))?no_esc}
+<!-- !attach:files/test.pdf -->
+<!-- !attach:files/another_test.pdf -->
+</body>
+</html>
 ```
-`testfile` can be replaced with any variable name you would like to use.
-* the chosen `cid` need to be specified in the theme.properties file like
-```
-attach_testfile=files/test.pdf          // if the cid is testfile
-attach_[cid]=files/another_test.pdf     // replace [cid] with your cid
-```
-* the specified file need to placed inside the [resources/...](./data/keycloak/themes/base/email/resources/) as base path
+
+* The path is relative to the `resources` directory of your email theme, e.g.
+  [data/keycloak/themes/base/email/resources/](./data/keycloak/themes/base/email/resources/) — so the example above
+  attaches `resources/files/test.pdf`.
+* Only the HTML template is scanned. Markers in the text template (`text/*.ftl`) are ignored, and emails without an
+  HTML body never get attachments.
+* The attachment's file name is the last segment of the path. Its `Content-Type` is derived from the file extension
+  (e.g. `.pdf` → `application/pdf`); unknown extensions are sent as `application/octet-stream`.
+* If a file can't be found, a warning (`Attach stream is null: …`) is logged and the email is sent without that
+  attachment.
+* The comment stays in the HTML body. Mail clients don't display it, but it is visible in the message source.
+
+See [email-test.ftl](./data/keycloak/themes/base/email/html/email-test.ftl) for a working example.
