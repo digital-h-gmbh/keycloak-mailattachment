@@ -5,9 +5,12 @@ import javax.activation.MimetypesFileTypeMap;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URLConnection;
 
 
 public class InputStreamDataSource implements DataSource {
+    private static final MimetypesFileTypeMap MIMETYPES = new MimetypesFileTypeMap();
+
     private Boolean fistRead;
     private final String name;
     private final InputStream inputStream1;
@@ -38,7 +41,14 @@ public class InputStreamDataSource implements DataSource {
 
     @Override
     public String getContentType() {
-        return new MimetypesFileTypeMap().getContentType(name);
+        // The JDK's FileNameMap knows common types like application/pdf, which the
+        // built-in MimetypesFileTypeMap table lacks. Fall back to the latter for
+        // types the JDK doesn't know; it returns application/octet-stream if unknown.
+        String contentType = URLConnection.guessContentTypeFromName(name);
+        if (contentType == null) {
+            contentType = MIMETYPES.getContentType(name);
+        }
+        return contentType;
     }
 
     @Override
